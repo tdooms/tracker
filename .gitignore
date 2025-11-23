@@ -1,7 +1,13 @@
 # build output
 dist/
+
+# The database
+data/
+
 # generated types
 .astro/
+
+*.pyc
 
 # dependencies
 node_modules/

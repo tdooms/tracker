@@ -9,88 +9,87 @@
   let chart: echarts.ECharts;
   let loading = true;
   let error = '';
+  let noData = false;
   let resizeObserver: ResizeObserver;
 
-  interface WebsiteData {
-    website: string;
-    duration: number;
+  interface IdleData {
+    hour: number;
+    totalIdleTime: number;
+    idleCount: number;
   }
 
   async function fetchAndRenderChart() {
     try {
       loading = true;
+      noData = false;
       error = '';
-      const response = await fetch(`/api?endpoint=websites&date=${selectedDate}`);
+      const response = await fetch(`/api?endpoint=idle-distribution&date=${selectedDate}`);
       if (!response.ok) throw new Error('Failed to fetch data');
 
-      const data: WebsiteData[] = await response.json();
+      const data: IdleData[] = await response.json();
 
       if (data.length === 0) {
-        error = 'No website data available';
+        noData = true;
         loading = false;
         return;
       }
 
-      // Initialize or update chart
+      // Create full 24-hour array with zeros for missing hours
+      const hourlyData = Array.from({ length: 24 }, (_, i) => {
+        const found = data.find(d => d.hour === i);
+        return found ? Math.round(found.totalIdleTime / 60) : 0; // Convert to minutes
+      });
+
+      const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+
       if (!chart) {
         chart = echarts.init(chartContainer);
       }
-
-      // Take top 15 websites
-      const topWebsites = data.slice(0, 15);
-
       chart.setOption({
         title: {
-          text: 'Website Activity',
+          text: 'Idle Time Distribution',
           left: 'center',
           top: 10,
         },
         tooltip: {
           trigger: 'axis',
-          axisPointer: {
-            type: 'shadow',
-          },
           formatter: (params: any) => {
-            const minutes = Math.round(params[0].value / 60);
+            const minutes = params[0].value;
             const hours = Math.floor(minutes / 60);
             const mins = minutes % 60;
             const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-            return `${params[0].name}<br/>Time: ${timeStr}`;
-          },
+            return `${params[0].axisValue}<br/>Idle Time: ${timeStr}`;
+          }
         },
         grid: {
           left: '60px',
-          right: '80px',
-          bottom: '40px',
-          top: 50,
-          containLabel: true,
+          right: '20px',
+          bottom: '60px',
+          top: '60px',
         },
         xAxis: {
-          type: 'value',
-          name: 'Duration (minutes)',
+          type: 'category',
+          data: hours,
+          name: 'Hour of Day',
           nameLocation: 'middle',
-          nameGap: 30,
+          nameGap: 35,
           axisLabel: {
-            formatter: (value: number) => Math.round(value / 60),
-          },
+            interval: 2
+          }
         },
         yAxis: {
-          type: 'category',
-          data: topWebsites.map((w) => w.website),
-          axisLabel: {
-            width: 200,
-            overflow: 'truncate',
-          },
+          type: 'value',
+          name: 'Idle Time (minutes)',
+          nameLocation: 'middle',
+          nameGap: 40,
         },
-        series: [
-          {
-            type: 'bar',
-            data: topWebsites.map((w) => w.duration),
-            itemStyle: {
-              color: '#5470c6',
-            },
-          },
-        ],
+        series: [{
+          type: 'bar',
+          data: hourlyData,
+          itemStyle: {
+            color: '#ee6666'
+          }
+        }]
       });
 
       loading = false;
@@ -118,17 +117,22 @@
 </script>
 
 <div class="w-full h-full relative">
-  <!-- Chart container - always rendered -->
-  <div bind:this={chartContainer} class="w-full h-96"></div>
+  <div bind:this={chartContainer} class="w-full h-80"></div>
 
-  <!-- Loading overlay -->
   {#if loading}
     <div class="absolute inset-0 flex items-center justify-center bg-base-100">
       <span class="loading loading-spinner loading-lg"></span>
     </div>
   {/if}
 
-  <!-- Error overlay -->
+  {#if noData}
+    <div class="absolute inset-0 flex items-center justify-center bg-base-100 p-4">
+      <div class="alert alert-info">
+        <span>No idle periods recorded</span>
+      </div>
+    </div>
+  {/if}
+
   {#if error}
     <div class="absolute inset-0 flex items-center justify-center bg-base-100 p-4">
       <div class="alert alert-error">

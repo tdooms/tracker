@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { format } from 'date-fns';
   import * as echarts from 'echarts';
 
-  export let daysBack: number = 7;
+  export let selectedDate: string = format(new Date(), 'yyyy-MM-dd');
 
   let chartContainer: HTMLDivElement;
   let chart: echarts.ECharts;
   let loading = true;
   let error = '';
+  let resizeObserver: ResizeObserver;
 
   interface HourlyData {
     hour: string;
@@ -15,9 +17,10 @@
     duration: number;
   }
 
-  onMount(async () => {
+  async function fetchAndRenderChart() {
     try {
-      const response = await fetch(`/api/activity/hourly?days=${daysBack}`);
+      loading = true;
+      const response = await fetch(`/api?endpoint=hourly&date=${selectedDate}`);
       if (!response.ok) throw new Error('Failed to fetch data');
 
       const data: HourlyData[] = await response.json();
@@ -56,12 +59,16 @@
         }),
       }));
 
-      // Initialize chart (container is always rendered)
-      chart = echarts.init(chartContainer);
+      // Initialize or update chart
+      if (!chart) {
+        chart = echarts.init(chartContainer);
+      }
+
       chart.setOption({
         title: {
-          text: 'Application Usage by Hour',
+          text: 'Application Usage',
           left: 'center',
+          top: 10,
         },
         tooltip: {
           trigger: 'axis',
@@ -74,23 +81,25 @@
           },
         },
         legend: {
-          top: 30,
+          top: 40,
           data: appTotals.map((a) => a.app),
         },
         grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true,
+          left: '60px',
+          right: '20px',
+          bottom: '60px',
+          top: '100px',
         },
         xAxis: {
           type: 'category',
           boundaryGap: false,
           data: hours,
+          name: 'Time',
+          nameLocation: 'middle',
+          nameGap: 35,
           axisLabel: {
             rotate: 45,
             formatter: (value: string) => {
-              // Format to show date and hour
               const date = new Date(value);
               return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:00`;
             },
@@ -98,27 +107,34 @@
         },
         yAxis: {
           type: 'value',
-          name: 'Minutes',
+          name: 'Duration (minutes)',
+          nameLocation: 'middle',
+          nameGap: 40,
         },
         series,
       });
 
       loading = false;
-
-      // Handle resize
-      const resizeObserver = new ResizeObserver(() => {
-        chart?.resize();
-      });
-      resizeObserver.observe(chartContainer);
-
-      return () => {
-        resizeObserver.disconnect();
-        chart?.dispose();
-      };
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load chart';
       loading = false;
     }
+  }
+
+  $: if (selectedDate) {
+    fetchAndRenderChart();
+  }
+
+  onMount(() => {
+    resizeObserver = new ResizeObserver(() => {
+      chart?.resize();
+    });
+    resizeObserver.observe(chartContainer);
+
+    return () => {
+      resizeObserver.disconnect();
+      chart?.dispose();
+    };
   });
 </script>
 

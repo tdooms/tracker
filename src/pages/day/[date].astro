@@ -1,0 +1,98 @@
+---
+import { format } from 'date-fns';
+import APMChart from '../../components/charts/APMChart.svelte';
+import TimeSeriesChart from '../../components/charts/TimeSeriesChart.svelte';
+import WebsiteChart from '../../components/charts/WebsiteChart.svelte';
+import IdleDistribution from '../../components/charts/IdleDistribution.svelte';
+import '../../styles/global.css';
+
+const { date } = Astro.params;
+const selectedDate = date || format(new Date(), 'yyyy-MM-dd');
+const displayDate = format(new Date(selectedDate), 'MMMM d, yyyy');
+const todayDate = format(new Date(), 'yyyy-MM-dd');
+---
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Daily View - {displayDate}</title>
+    <script>
+      import "cally";
+    </script>
+  </head>
+  <body class="bg-base-200">
+    <div class="min-h-screen">
+      <header class="navbar bg-base-100 shadow-lg">
+        <div class="flex-1">
+          <a href="/" class="btn btn-ghost text-xl">← Monthly Overview</a>
+        </div>
+      </header>
+
+      <main class="container mx-auto p-4 md:p-8">
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-3xl font-bold">Daily View - {displayDate}</h1>
+        </div>
+
+        <!-- Date Selector with Cally -->
+        <div class="mb-8">
+          <calendar-date class="cally bg-base-100 border border-base-300 shadow-lg rounded-box" value={selectedDate}>
+            <svg aria-label="Previous" class="fill-current size-4" slot="previous" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M15.75 19.5 8.25 12l7.5-7.5"></path>
+            </svg>
+            <svg aria-label="Next" class="fill-current size-4" slot="next" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path fill="currentColor" d="m8.25 4.5 7.5 7.5-7.5 7.5"></path>
+            </svg>
+            <calendar-month></calendar-month>
+          </calendar-date>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6">
+          <!-- APM Chart -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Input Activity</h2>
+              <APMChart client:only />
+            </div>
+          </div>
+
+          <!-- Hourly Activity -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Application Activity</h2>
+              <TimeSeriesChart client:only daysBack={1} />
+            </div>
+          </div>
+
+          <!-- Website Activity -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Website Activity</h2>
+              <WebsiteChart client:only daysBack={1} />
+            </div>
+          </div>
+
+          <!-- Idle Distribution -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Idle Time Distribution</h2>
+              <IdleDistribution client:only daysBack={1} />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // Handle calendar date selection
+      const calendar = document.querySelector('calendar-date');
+      calendar?.addEventListener('change', (e: any) => {
+        const newDate = e.target.value;
+        if (newDate) {
+          window.location.href = `/day/${newDate}`;
+        }
+      });
+    </script>
+  </body>
+</html>

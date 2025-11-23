@@ -1,0 +1,232 @@
+---
+import { getTrackerDb } from '../lib/db/index';
+import '../styles/global.css';
+
+// Fetch data from each table
+const { db } = getTrackerDb();
+
+// Activity log - top 10 entries
+const activityLog = db.prepare(`
+  SELECT * FROM activity_log
+  ORDER BY timestamp DESC
+  LIMIT 10
+`).all();
+
+// Input metrics - top 10 entries
+const inputMetrics = db.prepare(`
+  SELECT * FROM input_metrics
+  ORDER BY timestamp DESC
+  LIMIT 10
+`).all();
+
+// Idle periods - top 10 entries
+const idlePeriods = db.prepare(`
+  SELECT * FROM idle_periods
+  ORDER BY start_time DESC
+  LIMIT 10
+`).all();
+
+// Helper to format timestamp
+function formatTimestamp(ts: string): string {
+  return new Date(ts).toLocaleString();
+}
+
+// Helper to format duration
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+  if (minutes > 0) return `${minutes}m ${secs}s`;
+  return `${secs}s`;
+}
+---
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Tracker Debug - Database Viewer</title>
+  </head>
+  <body class="bg-base-200">
+    <div class="min-h-screen">
+      <!-- Header -->
+      <header class="navbar bg-base-100 shadow-lg">
+        <div class="flex-1">
+          <a href="/" class="btn btn-ghost text-xl">← Back to Dashboard</a>
+        </div>
+        <div class="flex-none">
+          <h1 class="text-xl font-bold">Database Debug Viewer</h1>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="container mx-auto p-4 md:p-8">
+        <!-- Activity Log Table -->
+        <section class="mb-8">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-4">Activity Log (Top 10)</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Timestamp</th>
+                      <th>App Name</th>
+                      <th>Window Title</th>
+                      <th>Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityLog.length === 0 ? (
+                      <tr>
+                        <td colspan="5" class="text-center text-gray-500">No data</td>
+                      </tr>
+                    ) : (
+                      activityLog.map((row: any) => (
+                        <tr>
+                          <td>{row.id}</td>
+                          <td class="text-sm">{formatTimestamp(row.timestamp)}</td>
+                          <td><span class="badge badge-primary">{row.app_name}</span></td>
+                          <td class="max-w-xs truncate">{row.window_title}</td>
+                          <td>{formatDuration(row.duration)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div class="text-sm text-gray-500 mt-2">
+                Total rows: {activityLog.length}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Input Metrics Table -->
+        <section class="mb-8">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-4">Input Metrics (Top 10)</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Timestamp</th>
+                      <th>Key Presses</th>
+                      <th>Mouse Clicks</th>
+                      <th>Mouse Distance (px)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inputMetrics.length === 0 ? (
+                      <tr>
+                        <td colspan="5" class="text-center text-gray-500">No data</td>
+                      </tr>
+                    ) : (
+                      inputMetrics.map((row: any) => (
+                        <tr>
+                          <td>{row.id}</td>
+                          <td class="text-sm">{formatTimestamp(row.timestamp)}</td>
+                          <td>
+                            <span class="badge badge-info">{row.key_presses}</span>
+                          </td>
+                          <td>
+                            <span class="badge badge-success">{row.mouse_clicks}</span>
+                          </td>
+                          <td>
+                            <span class="badge badge-warning">{row.mouse_distance.toLocaleString()}</span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div class="text-sm text-gray-500 mt-2">
+                Total rows: {inputMetrics.length}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Idle Periods Table -->
+        <section class="mb-8">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-4">Idle Periods (Top 10)</h2>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Start Time</th>
+                      <th>End Time</th>
+                      <th>Duration</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {idlePeriods.length === 0 ? (
+                      <tr>
+                        <td colspan="5" class="text-center text-gray-500">No idle periods recorded</td>
+                      </tr>
+                    ) : (
+                      idlePeriods.map((row: any) => (
+                        <tr>
+                          <td>{row.id}</td>
+                          <td class="text-sm">{formatTimestamp(row.start_time)}</td>
+                          <td class="text-sm">
+                            {row.end_time ? formatTimestamp(row.end_time) : '—'}
+                          </td>
+                          <td>
+                            {row.duration ? formatDuration(row.duration) : '—'}
+                          </td>
+                          <td>
+                            {row.end_time ? (
+                              <span class="badge badge-success">Completed</span>
+                            ) : (
+                              <span class="badge badge-warning">Ongoing</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div class="text-sm text-gray-500 mt-2">
+                Total rows: {idlePeriods.length}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Database Info -->
+        <section class="mb-8">
+          <div class="alert alert-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <div class="font-bold">Database Location</div>
+              <div class="text-sm">C:\Users\thoma\Documents\activity-tracker\tracker.db</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="text-center text-sm opacity-60">
+          <p>Last refreshed: {new Date().toLocaleString()}</p>
+          <p class="mt-2">
+            <a href="/" class="link link-primary">Back to Dashboard</a> •
+            <a href="/debug" class="link link-primary">Refresh Data</a>
+          </p>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>

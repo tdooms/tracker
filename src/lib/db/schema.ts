@@ -1,32 +1,30 @@
-import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
 
-// APM (Activity Performance Metrics) tracking table
-export const apmLogs = sqliteTable('apm_logs', {
+// Activity log from Python tracker
+export const activityLog = sqliteTable('activity_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
-  keysPerMinute: real('keys_per_minute').notNull(),
+  timestamp: text('timestamp').notNull(), // ISO format
+  appName: text('app_name').notNull(),
+  windowTitle: text('window_title').notNull(),
+  duration: integer('duration').notNull(), // seconds
+  createdAt: text('created_at'),
+});
+
+// Input metrics from Python tracker
+export const inputMetrics = sqliteTable('input_metrics', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  timestamp: text('timestamp').notNull(), // ISO format
+  keyPresses: integer('key_presses').notNull(),
   mouseClicks: integer('mouse_clicks').notNull(),
-  mouseDistance: real('mouse_distance'), // pixels moved
-  activeWindow: text('active_window'),
+  mouseDistance: integer('mouse_distance').notNull(), // pixels
+  createdAt: text('created_at'),
 });
 
-// Git metrics tracking table
-export const gitMetrics = sqliteTable('git_metrics', {
+// Idle periods from Python tracker
+export const idlePeriods = sqliteTable('idle_periods', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
-  repository: text('repository').notNull(),
-  commitHash: text('commit_hash'),
-  linesAdded: integer('lines_added').notNull(),
-  linesDeleted: integer('lines_deleted').notNull(),
-  filesChanged: integer('files_changed').notNull(),
-  commitMessage: text('commit_message'),
-});
-
-// Custom activity sessions table
-export const activitySessions = sqliteTable('activity_sessions', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  startTime: integer('start_time', { mode: 'timestamp' }).notNull(),
-  endTime: integer('end_time', { mode: 'timestamp' }).notNull(),
-  category: text('category').notNull(), // 'productive', 'neutral', 'idle'
-  description: text('description'),
+  startTime: text('start_time').notNull(), // ISO format
+  endTime: text('end_time'), // nullable until idle ends
+  duration: integer('duration'), // seconds, nullable until idle ends
+  createdAt: text('created_at'),
 });
