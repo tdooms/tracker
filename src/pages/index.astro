@@ -1,16 +1,81 @@
 ---
-
+import TimeSeriesChart from '../components/charts/TimeSeriesChart.svelte';
+import HeatmapChart from '../components/charts/HeatmapChart.svelte';
+import APMChart from '../components/charts/APMChart.svelte';
+import WebsiteChart from '../components/charts/WebsiteChart.svelte';
+import StatsOverview from '../components/ui/StatsOverview.svelte';
+import '../styles/global.css';
 ---
 
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>Activity Tracker Dashboard</title>
 	</head>
-	<body>
-		<h1>Astro</h1>
+	<body class="bg-base-200">
+		<div class="min-h-screen">
+			<!-- Header -->
+			<header class="navbar bg-base-100 shadow-lg">
+				<div class="flex-1">
+					<a class="btn btn-ghost text-xl">Activity Tracker</a>
+				</div>
+				<div class="flex-none">
+					<button class="btn btn-square btn-ghost">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path>
+						</svg>
+					</button>
+				</div>
+			</header>
+
+			<!-- Main Content -->
+			<main class="container mx-auto p-4 md:p-8">
+				<!-- Stats Overview Section -->
+				<section class="mb-8">
+					<h2 class="text-2xl font-bold mb-4">Today's Overview</h2>
+					<StatsOverview client:load />
+				</section>
+
+				<!-- Charts Grid -->
+				<div class="grid grid-cols-1 gap-8">
+					<!-- Time Series Chart -->
+					<section class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<TimeSeriesChart client:only daysBack={7} />
+						</div>
+					</section>
+
+					<!-- Website Activity Chart -->
+					<section class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<WebsiteChart client:only daysBack={7} />
+						</div>
+					</section>
+
+					<!-- Heatmap Chart -->
+					<section class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<HeatmapChart client:only daysBack={30} />
+						</div>
+					</section>
+
+					<!-- APM Chart -->
+					<section class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<APMChart client:only daysBack={7} />
+						</div>
+					</section>
+				</div>
+
+				<!-- Footer Info -->
+				<footer class="mt-8 text-center text-sm opacity-60">
+					<p>Data from ActivityWatch and custom metrics • Last updated: {new Date().toLocaleString()}</p>
+				</footer>
+			</main>
+		</div>
 	</body>
 </html>

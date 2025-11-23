@@ -9,6 +9,21 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.16.0"
+    "@astrojs/node": "^9.5.1",
+    "@astrojs/svelte": "^7.2.2",
+    "@tailwindcss/vite": "^4.1.17",
+    "astro": "^5.16.0",
+    "better-sqlite3": "^12.4.6",
+    "daisyui": "^5.5.5",
+    "date-fns": "^4.1.0",
+    "drizzle-kit": "^0.31.7",
+    "drizzle-orm": "^0.44.7",
+    "echarts": "^6.0.0",
+    "svelte": "^5.43.14",
+    "tailwindcss": "^4.1.17"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.10.1"
   }
 }

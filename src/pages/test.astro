@@ -1,0 +1,49 @@
+---
+// Minimal test page - just display some mock data
+const mockData = {
+  totalActiveTime: 14400, // 4 hours in seconds
+  topApps: [
+    { name: 'VS Code', duration: 7200 },
+    { name: 'Chrome', duration: 5400 },
+    { name: 'Terminal', duration: 1800 },
+  ],
+  avgSessionLength: 1200,
+  sessionsToday: 12,
+};
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Test Page</title>
+  </head>
+  <body>
+    <h1>Activity Tracker Test</h1>
+
+    <h2>Stats</h2>
+    <ul>
+      <li>Total Active Time: {formatDuration(mockData.totalActiveTime)}</li>
+      <li>Sessions Today: {mockData.sessionsToday}</li>
+      <li>Avg Session: {formatDuration(mockData.avgSessionLength)}</li>
+    </ul>
+
+    <h2>Top Apps</h2>
+    <ul>
+      {mockData.topApps.map(app => (
+        <li>{app.name}: {formatDuration(app.duration)}</li>
+      ))}
+    </ul>
+
+    <p><a href="/">Back to Dashboard</a></p>
+  </body>
+</html>

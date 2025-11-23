@@ -1,0 +1,52 @@
+---
+import '../styles/global.css';
+---
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <title>Simple Test</title>
+  </head>
+  <body class="bg-base-200 p-8">
+    <div class="card bg-base-100 shadow-xl max-w-2xl mx-auto">
+      <div class="card-body">
+        <h2 class="card-title">Simple Working Example</h2>
+
+        <div class="stats shadow">
+          <div class="stat">
+            <div class="stat-title">Active Time</div>
+            <div class="stat-value">4h 30m</div>
+            <div class="stat-desc">Today</div>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <h3 class="font-bold mb-2">Test API Fetch:</h3>
+          <button class="btn btn-primary" id="testBtn">Test API Call</button>
+          <pre id="result" class="mt-4 p-4 bg-base-200 rounded"></pre>
+        </div>
+
+        <div class="mt-4">
+          <a href="/" class="link">Back to main dashboard</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.getElementById('testBtn')?.addEventListener('click', async () => {
+        const resultEl = document.getElementById('result');
+        if (!resultEl) return;
+
+        try {
+          resultEl.textContent = 'Fetching...';
+          const response = await fetch('/api/test');
+          const data = await response.json();
+          resultEl.textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+          resultEl.textContent = `Error: ${error}`;
+        }
+      });
+    </script>
+  </body>
+</html>
