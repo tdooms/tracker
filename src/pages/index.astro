@@ -7,7 +7,6 @@ import FocusSessions from '../components/charts/FocusSessions.svelte';
 import APMChart from '../components/charts/APMChart.svelte';
 import TimeSeriesChart from '../components/charts/TimeSeriesChart.svelte';
 import WebsiteChart from '../components/charts/WebsiteChart.svelte';
-import IdleDistribution from '../components/charts/IdleDistribution.svelte';
 import StatsOverview from '../components/ui/StatsOverview.svelte';
 import '../styles/global.css';
 
@@ -144,11 +143,6 @@ const displayDate = format(new Date(selectedDate), 'MMMM d, yyyy');
                   </div>
                 </div>
 
-                <div class="card bg-base-100 shadow-xl">
-                  <div class="card-body">
-                    <IdleDistribution client:only selectedDate={selectedDate} />
-                  </div>
-                </div>
               </div>
             </section>
           </>

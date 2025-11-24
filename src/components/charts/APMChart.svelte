@@ -37,13 +37,59 @@
         return;
       }
 
-      // Prepare data with minute precision
-      const timestamps = data.map((d) => {
-        const date = new Date(d.timestamp);
-        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      const minuteKey = (date: Date) => {
+        const copy = new Date(date);
+        copy.setSeconds(0);
+        copy.setMilliseconds(0);
+        return copy.toISOString();
+      };
+
+      const byMinute = new Map<string, { keys: number; clicks: number }>();
+      data.forEach((entry) => {
+        const ts = new Date(entry.timestamp);
+        if (Number.isNaN(ts.getTime())) return;
+        const key = minuteKey(ts);
+        const existing = byMinute.get(key);
+        if (existing) {
+          existing.keys += entry.keysPerMinute;
+          existing.clicks += entry.mouseClicks;
+        } else {
+          byMinute.set(key, {
+            keys: entry.keysPerMinute,
+            clicks: entry.mouseClicks,
+          });
+        }
       });
-      const keysData = data.map((d) => d.keysPerMinute);
-      const clicksData = data.map((d) => d.mouseClicks);
+
+      const dayStart = new Date(`${selectedDate}T00:00:00`);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+
+      const timestamps: string[] = [];
+      const keysData: number[] = [];
+      const clicksData: number[] = [];
+      const minuteStep = 60 * 1000;
+      const intervalMs = 30 * 60 * 1000;
+
+      for (let cursor = new Date(dayStart); cursor < dayEnd; cursor = new Date(cursor.getTime() + intervalMs)) {
+        const bucketEnd = new Date(Math.min(cursor.getTime() + intervalMs, dayEnd.getTime()));
+        let keySum = 0;
+        let clickSum = 0;
+        for (let minuteCursor = new Date(cursor); minuteCursor < bucketEnd; minuteCursor = new Date(minuteCursor.getTime() + minuteStep)) {
+          const entry = byMinute.get(minuteKey(minuteCursor));
+          if (entry) {
+            keySum += entry.keys;
+            clickSum += entry.clicks;
+          }
+        }
+        const label = `${cursor.getHours().toString().padStart(2, '0')}:${cursor
+          .getMinutes()
+          .toString()
+          .padStart(2, '0')}`;
+        timestamps.push(label);
+        keysData.push(Math.round(keySum));
+        clicksData.push(Math.round(clickSum));
+      }
 
       // Format date for display
       const displayDate = format(new Date(selectedDate), 'MMMM d, yyyy');
@@ -88,7 +134,8 @@
           nameGap: 35,
           axisLabel: {
             rotate: 45,
-            interval: Math.floor(data.length / 24) || 0, // Show ~24 labels for full day
+            interval: 1,
+            formatter: (value: string) => (value.endsWith(':00') ? value : ''),
           },
         },
         yAxis: [
@@ -98,6 +145,9 @@
             nameLocation: 'middle',
             nameGap: 40,
             position: 'left',
+            splitLine: {
+              show: true,
+            },
           },
           {
             type: 'value',
@@ -105,6 +155,15 @@
             nameLocation: 'middle',
             nameGap: 40,
             position: 'right',
+            axisLine: {
+              show: false,
+            },
+            axisTick: {
+              show: false,
+            },
+            splitLine: {
+              show: false,
+            },
           },
         ],
         series: [
@@ -115,6 +174,7 @@
             data: keysData,
             itemStyle: { color: '#5470c6' },
             lineStyle: { width: 2 },
+            showSymbol: false,
           },
           {
             name: 'Mouse Clicks',
@@ -124,6 +184,7 @@
             data: clicksData,
             itemStyle: { color: '#91cc75' },
             lineStyle: { width: 2 },
+            showSymbol: false,
           },
         ],
       });

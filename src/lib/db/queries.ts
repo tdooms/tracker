@@ -160,6 +160,49 @@ export async function getTrackerHourlyActivityForDate(date: string): Promise<Hou
     WHERE timestamp >= ? AND timestamp <= ?
   `).all(startOfDay, endOfDay) as any[];
 
+  const idleRows = db.prepare(`
+    SELECT start_time, end_time
+    FROM idle_periods
+    WHERE start_time >= ? AND start_time <= ? AND end_time IS NOT NULL
+  `).all(startOfDay, endOfDay) as any[];
+
+  const idleRanges = idleRows
+    .map((row) => ({
+      start: row.start_time ? new Date(row.start_time) : null,
+      end: row.end_time ? new Date(row.end_time) : null,
+    }))
+    .filter((range) => range.start && range.end && range.end > range.start)
+    .map((range) => ({ start: range.start as Date, end: range.end as Date }))
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  const splitByIdle = (segmentStart: Date, segmentEnd: Date) => {
+    let segments = [{ start: segmentStart, end: segmentEnd }];
+
+    for (const idle of idleRanges) {
+      const nextSegments: typeof segments = [];
+      for (const segment of segments) {
+        if (idle.end <= segment.start || idle.start >= segment.end) {
+          nextSegments.push(segment);
+          continue;
+        }
+
+        if (idle.start > segment.start) {
+          nextSegments.push({ start: segment.start, end: idle.start });
+        }
+        if (idle.end < segment.end) {
+          nextSegments.push({ start: idle.end, end: segment.end });
+        }
+      }
+
+      segments = nextSegments;
+      if (segments.length === 0) {
+        break;
+      }
+    }
+
+    return segments.filter((segment) => segment.end > segment.start);
+  };
+
   const pad = (value: number) => value.toString().padStart(2, '0');
   const formatHour = (dateValue: Date) => {
     const year = dateValue.getFullYear();
@@ -169,7 +212,26 @@ export async function getTrackerHourlyActivityForDate(date: string): Promise<Hou
     return `${year}-${month}-${day} ${hour}:00`;
   };
 
+  const addRangeToMap = (map: Map<string, number>, rangeStart: Date, rangeEnd: Date) => {
+    let cursor = new Date(rangeStart);
+    while (cursor < rangeEnd) {
+      const hourStart = new Date(cursor);
+      hourStart.setMinutes(0, 0, 0);
+      const hourEnd = new Date(hourStart);
+      hourEnd.setHours(hourEnd.getHours() + 1);
+      const segmentEnd = rangeEnd < hourEnd ? rangeEnd : hourEnd;
+      const durationMs = segmentEnd.getTime() - cursor.getTime();
+      if (durationMs > 0) {
+        const hourKey = formatHour(hourStart);
+        map.set(hourKey, (map.get(hourKey) || 0) + durationMs / 1000);
+      }
+      cursor = segmentEnd;
+    }
+  };
+
   const appHourlyMap = new Map<string, Map<string, number>>();
+
+  const idleHourlyMap = new Map<string, number>();
 
   for (const row of results) {
     const durationSeconds = typeof row.duration === 'number' ? row.duration : 0;
@@ -190,21 +252,32 @@ export async function getTrackerHourlyActivityForDate(date: string): Promise<Hou
       hourEnd.setHours(hourEnd.getHours() + 1);
 
       const segmentEnd = end < hourEnd ? end : hourEnd;
-      const segmentMs = segmentEnd.getTime() - cursor.getTime();
-      if (segmentMs <= 0) {
+      if (segmentEnd <= cursor) {
         break;
       }
 
-      const secondsInSegment = segmentMs / 1000;
-      const hourKey = formatHour(hourStart);
-      const appName = row.app_name || 'Unknown';
-      const hourMap = appHourlyMap.get(appName) ?? new Map<string, number>();
-      hourMap.set(hourKey, (hourMap.get(hourKey) || 0) + secondsInSegment);
-      appHourlyMap.set(appName, hourMap);
+      const activeSegments = splitByIdle(cursor, segmentEnd);
+      for (const active of activeSegments) {
+        const segmentMs = active.end.getTime() - active.start.getTime();
+        if (segmentMs <= 0) {
+          continue;
+        }
+
+        const secondsInSegment = segmentMs / 1000;
+        const hourKey = formatHour(active.start);
+        const appName = row.app_name || 'Unknown';
+        const hourMap = appHourlyMap.get(appName) ?? new Map<string, number>();
+        hourMap.set(hourKey, (hourMap.get(hourKey) || 0) + secondsInSegment);
+        appHourlyMap.set(appName, hourMap);
+      }
 
       cursor = segmentEnd;
     }
   }
+
+  idleRanges.forEach((idle) => {
+    addRangeToMap(idleHourlyMap, idle.start, idle.end);
+  });
 
   const hourlyData: HourlyActivity[] = [];
 
@@ -216,6 +289,16 @@ export async function getTrackerHourlyActivityForDate(date: string): Promise<Hou
         duration: Math.round(duration),
       });
     });
+  });
+
+  idleHourlyMap.forEach((duration, hour) => {
+    if (duration > 0) {
+      hourlyData.push({
+        hour,
+        appName: 'Idle',
+        duration: Math.round(duration),
+      });
+    }
   });
 
   return hourlyData.sort((a, b) => {

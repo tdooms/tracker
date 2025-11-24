@@ -26,33 +26,73 @@
       const data: HourlyData[] = await response.json();
 
       // Process data for ECharts
-      // Group by app and create time series
-      const appMap = new Map<string, Map<string, number>>();
+      const titleCase = (value: string) =>
+        value
+          .toLowerCase()
+          .replace(/(^|\s|-|_)([a-z])/g, (match, prefix, char) => `${prefix}${char.toUpperCase()}`);
 
+      const sanitizeAppName = (name?: string) => {
+        if (!name) return 'Idle';
+        const base = name.replace(/\.exe$/i, '').trim();
+        if (!base) return 'Idle';
+        return titleCase(base);
+      };
+
+      const appMap = new Map<string, Map<string, number>>();
       data.forEach((item) => {
-        if (!appMap.has(item.appName)) {
-          appMap.set(item.appName, new Map());
+        const sanitized = sanitizeAppName(item.appName);
+        if (!appMap.has(sanitized)) {
+          appMap.set(sanitized, new Map());
         }
-        appMap.get(item.appName)!.set(item.hour, item.duration);
+        appMap.get(sanitized)!.set(item.hour, item.duration);
       });
 
-      // Get unique hours
-      const hours = Array.from(new Set(data.map((d) => d.hour))).sort();
+      const pad = (value: number) => value.toString().padStart(2, '0');
+      const formatHour = (dateValue: Date) => {
+        const year = dateValue.getFullYear();
+        const month = pad(dateValue.getMonth() + 1);
+        const day = pad(dateValue.getDate());
+        const hour = pad(dateValue.getHours());
+        return `${year}-${month}-${day} ${hour}:00`;
+      };
+
+      const startOfDay = new Date(`${selectedDate}T00:00:00`);
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+
+      const hours: string[] = [];
+      for (let cursor = new Date(startOfDay); cursor < endOfDay; cursor = new Date(cursor.getTime() + 60 * 60 * 1000)) {
+        hours.push(formatHour(cursor));
+      }
 
       // Get top 5 apps by total duration
-      const appTotals = Array.from(appMap.entries())
+      const sortedApps = Array.from(appMap.entries())
         .map(([app, hourMap]) => ({
           app,
           total: Array.from(hourMap.values()).reduce((a, b) => a + b, 0),
         }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
+        .sort((a, b) => b.total - a.total);
+
+      const topApps = sortedApps.slice(0, 5);
+      const idleEntry = sortedApps.find((entry) => entry.app === 'Idle');
+      if (idleEntry && !topApps.some((entry) => entry.app === 'Idle')) {
+        topApps.push(idleEntry);
+      }
 
       // Create series data
-      const series = appTotals.map(({ app }) => ({
+      const series = topApps.map(({ app }) => ({
         name: app,
         type: 'line',
         smooth: true,
+        showSymbol: false,
+        lineStyle: {
+          type: app === 'Idle' ? 'dashed' : 'solid',
+          width: 2,
+        },
+        areaStyle: app === 'Idle' ? { opacity: 0.2 } : undefined,
+        itemStyle: {
+          color: app === 'Idle' ? '#6b7280' : undefined,
+        },
         data: hours.map((hour) => {
           const duration = appMap.get(app)?.get(hour) || 0;
           return Math.round(duration / 60); // Convert to minutes
@@ -82,7 +122,7 @@
         },
         legend: {
           top: 40,
-          data: appTotals.map((a) => a.app),
+          data: topApps.map((a) => a.app),
         },
         grid: {
           left: '60px',
@@ -97,11 +137,14 @@
           name: 'Time',
           nameLocation: 'middle',
           nameGap: 35,
+          axisTick: {
+            show: true,
+          },
           axisLabel: {
-            rotate: 45,
+            interval: 1,
             formatter: (value: string) => {
-              const date = new Date(value);
-              return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:00`;
+              const [, timePart] = value.split(' ');
+              return timePart ?? '';
             },
           },
         },
